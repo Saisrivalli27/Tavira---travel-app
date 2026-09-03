@@ -1,112 +1,133 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Wind, Droplets, Thermometer, Clock, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Sparkles, Compass, ChevronRight, Eye } from 'lucide-react';
 import { destinationService } from '../services/destinationService';
-import { weatherService, type WeatherData } from '../services/weatherService';
-import { assistantService } from '../services/assistantService';
-import { itineraryService, type ItineraryDay } from '../services/itineraryService';
 import { imageService } from '../services/imageService';
-import { DestinationOverview } from '../components/destination/DestinationOverview';
-import type { Destination } from '../data/mockDestinations';
+import { WeatherWidget } from '../components/weather/WeatherWidget';
+import { ItineraryPlanner } from '../components/itinerary/ItineraryPlanner';
+import { useTravel } from '../context/TravelContext';
+import type { Destination, Place, Highlight } from '../data/mockDestinations';
 import { Button } from '../components/ui/Button';
 
 export const DestinationDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const [destination, setDestination] = useState<Destination | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [related, setRelated] = useState<Destination[]>([]);
+  const [activePlaceModal, setActivePlaceModal] = useState<Place | null>(null);
+  const [relatedDestinations, setRelatedDestinations] = useState<Destination[]>([]);
+  const [dynamicHeroImg, setDynamicHeroImg] = useState<string | null>(null);
+  const [dynamicPlaceImages, setDynamicPlaceImages] = useState<Record<string, string>>({});
+  const [dynamicRelatedImages, setDynamicRelatedImages] = useState<Record<string, string>>({});
 
-  // Assistant State
-  const [assistantMsg, setAssistantMsg] = useState('');
-  const [conversation, setConversation] = useState<{role: 'user'|'assistant', text: string}[]>([]);
-  const [assistantLoading, setAssistantLoading] = useState(false);
-
-  // Itinerary State
-  const [itinDays, setItinDays] = useState('3');
-  const [itinStyle, setItinStyle] = useState('Balanced');
-  const [itinerary, setItinerary] = useState<ItineraryDay[] | null>(null);
-  const [itinLoading, setItinLoading] = useState(false);
+  const { openAria, setDestinationContext } = useTravel();
 
   useEffect(() => {
     if (!slug) return;
-    
     setLoading(true);
-    setConversation([]);
-    setItinerary(null);
+    setDynamicHeroImg(null);
+    setDynamicPlaceImages({});
+    setDynamicRelatedImages({});
     window.scrollTo(0, 0);
 
     destinationService.getDestinationBySlug(slug).then((dest) => {
       if (dest) {
         setDestination(dest);
-        
-        weatherService.getWeatherByCoordinates(dest.coordinates.lat, dest.coordinates.lng)
-          .then(setWeather);
 
-        destinationService.searchAndFilter({ region: dest.region }).then(res => {
-          setRelated(res.filter(r => r.id !== dest.id).slice(0, 3));
+        // Update TravelContext so ARIA knows this destination
+        setDestinationContext({
+          name: dest.name,
+          country: dest.country,
+          region: dest.region,
+          tagline: dest.tagline,
+          description: dest.description,
+          bestSeason: dest.bestSeason,
+          signatureExperiences: dest.details?.signatureExperiences || dest.highlights,
+          places: dest.places.map(p => ({ name: p.name, description: p.description }))
+        });
+
+        // Asynchronously enhance with Pexels API (with immediate local fallback)
+        imageService.fetchDestinationImage(dest.name, dest.heroImageId).then(img => {
+          if (img?.url) setDynamicHeroImg(img.url);
+        });
+
+        dest.places.forEach(place => {
+          imageService.fetchPlaceImage(place.name, dest.name, place.imageId).then(img => {
+            if (img?.url) {
+              setDynamicPlaceImages(prev => ({ ...prev, [place.id]: img.url }));
+            }
+          });
+        });
+
+        // Load related destinations
+        destinationService.searchAndFilter({ region: dest.region }).then((res) => {
+          const related = res.filter(r => r.id !== dest.id).slice(0, 3);
+          setRelatedDestinations(related);
+          related.forEach(rel => {
+            imageService.fetchDestinationImage(rel.name, rel.heroImageId).then(img => {
+              if (img?.url) {
+                setDynamicRelatedImages(prev => ({ ...prev, [rel.id]: img.url }));
+              }
+            });
+          });
         });
       }
       setLoading(false);
     });
   }, [slug]);
 
-  const handleAssistantSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!assistantMsg.trim() || !destination) return;
-
-    const userText = assistantMsg.trim();
-    setConversation(prev => [...prev, { role: 'user', text: userText }]);
-    setAssistantMsg('');
-    setAssistantLoading(true);
-
-    try {
-      const response = await assistantService.askQuestion(destination.name, userText);
-      setConversation(prev => [...prev, { role: 'assistant', text: response }]);
-    } finally {
-      setAssistantLoading(false);
-    }
-  };
-
-  const handleQuickQuestion = (q: string) => {
-    setAssistantMsg(q);
-    setTimeout(() => {
-      const form = document.getElementById('assistant-form') as HTMLFormElement;
-      if (form) form.requestSubmit();
-    }, 100);
-  };
-
-  const handleGenerateItinerary = async () => {
-    if (!destination) return;
-    setItinLoading(true);
-    setItinerary(null);
-
-    try {
-      const result = await itineraryService.generateItinerary({
-        destinationSlug: destination.slug,
-        days: parseInt(itinDays),
-        travelStyle: itinStyle
-      });
-      setItinerary(result);
-    } finally {
-      setItinLoading(false);
-    }
-  };
-
   if (loading) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p className="text-secondary text-lg">Preparing destination...</p>
+      <div className="dest-loading-screen">
+        <span className="dest-loading-spinner" />
+        <p className="dest-loading-text">Preparing destination journal...</p>
+        <style>{`
+          .dest-loading-screen {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            background-color: var(--color-bg-primary);
+          }
+          .dest-loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-text-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+          .dest-loading-text {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            color: var(--color-text-secondary);
+          }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
       </div>
     );
   }
 
   if (!destination) {
     return (
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-6)' }}>
-        <h1 className="text-serif text-4xl">Destination not found</h1>
-        <Button to="/explore" variant="secondary">Return to Explore</Button>
+      <div className="dest-not-found-screen">
+        <h1 className="text-serif text-5xl mb-4">Destination Unrecorded</h1>
+        <p className="text-secondary text-lg mb-8 max-w-md text-center">
+          The requested path does not exist in the Tavira archives. Explore our global collection to discover new horizons.
+        </p>
+        <Button to="/explore" variant="primary">Return to Explore</Button>
+        <style>{`
+          .dest-not-found-screen {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background-color: var(--color-bg-primary);
+          }
+        `}</style>
       </div>
     );
   }
@@ -114,333 +135,968 @@ export const DestinationDetail = () => {
   const heroImg = imageService.getImage(destination.heroImageId);
 
   return (
-    <div className="animate-fade-in">
-      {/* 1. Immersive Hero */}
-      <section style={{ height: '90vh', minHeight: '600px', position: 'relative', overflow: 'hidden' }}>
-        <img 
-          src={heroImg.url} 
-          alt={heroImg.alt} 
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+    <div className="destination-page animate-fade-in">
+      
+      {/* 1. Cinematic Destination Hero */}
+      <section className="dest-hero-section">
+        <img
+          src={dynamicHeroImg || heroImg.url}
+          alt={heroImg.alt}
+          className="dest-hero-img"
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(17,20,26,0.8) 0%, rgba(17,20,26,0.1) 100%)' }} />
-        <div className="container" style={{ 
-          position: 'absolute', inset: 0, 
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          paddingBottom: 'var(--space-24)', color: 'var(--color-white)'
-        }}>
-          <p className="text-sm uppercase animate-slide-up" style={{ letterSpacing: '0.1em', marginBottom: 'var(--space-4)', fontWeight: 500, color: 'rgba(255,255,255,0.8)' }}>
-            {destination.country} &mdash; {destination.region}
-          </p>
-          <h1 className="text-serif animate-slide-up" style={{ fontSize: 'clamp(4rem, 10vw, 7rem)', lineHeight: 1, marginBottom: 'var(--space-4)', animationDelay: '100ms', color: 'var(--color-white)' }}>
-            {destination.name}
-          </h1>
-          <p className="text-2xl animate-slide-up" style={{ maxWidth: '800px', fontWeight: 300, animationDelay: '200ms', color: 'rgba(255,255,255,0.9)' }}>
-            {destination.tagline}
-          </p>
+        <div className="dest-hero-overlay" />
+
+        <div className="container dest-hero-container">
+          
+          {/* Breadcrumbs */}
+          <div className="dest-hero-breadcrumbs">
+            <Link to="/explore" className="breadcrumb-back">
+              <ArrowLeft size={14} /> Back to Destinations
+            </Link>
+            <span className="breadcrumb-separator">/</span>
+            <span className="breadcrumb-current">{destination.region}</span>
+          </div>
+
+          {/* Title Composition */}
+          <div className="dest-hero-title-wrap">
+            <span className="dest-hero-eyebrow">
+              {destination.country.toUpperCase()} · {destination.region.toUpperCase()}
+            </span>
+            <h1 className="dest-hero-title">{destination.name}</h1>
+            <p className="dest-hero-tagline">{destination.tagline}</p>
+          </div>
+
+          {/* Quick Stats Pill Strip */}
+          <div className="dest-hero-stats-strip">
+            <div className="hero-stat-pill">
+              <Calendar size={14} className="stat-icon" />
+              <span>Ideal Stay: <strong>{destination.details?.idealStay || '3–4 days'}</strong></span>
+            </div>
+            <div className="hero-stat-pill">
+              <Compass size={14} className="stat-icon" />
+              <span>Optimal Season: <strong>{destination.bestSeason}</strong></span>
+            </div>
+            <button 
+              onClick={() => openAria()}
+              className="hero-stat-pill hero-stat-btn"
+            >
+              <Sparkles size={14} className="stat-icon text-accent" />
+              <span>Ask ARIA about {destination.name}</span>
+            </button>
+          </div>
+
         </div>
       </section>
 
-      {/* Sticky Sub-Navigation */}
-      <nav style={{ 
-        position: 'sticky', 
-        top: 'var(--header-height)', 
-        zIndex: 40, 
-        backgroundColor: 'rgba(250, 249, 246, 0.95)',
-        borderBottom: '1px solid var(--color-border)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)'
-      }}>
-        <div className="container">
-          <ul style={{ 
-            display: 'flex', 
-            gap: 'var(--space-8)', 
-            overflowX: 'auto', 
-            padding: 'var(--space-4) 0',
-            whiteSpace: 'nowrap',
-            scrollbarWidth: 'none', // Firefox
-            msOverflowStyle: 'none' // IE/Edge
-          }} className="sub-nav-list">
-            <li><a href="#overview" className="text-sm uppercase hover:text-accent font-medium transition-colors" style={{ letterSpacing: '0.05em' }}>Overview</a></li>
-            <li><a href="#places" className="text-sm uppercase hover:text-accent font-medium transition-colors" style={{ letterSpacing: '0.05em' }}>Places</a></li>
-            <li><a href="#weather" className="text-sm uppercase hover:text-accent font-medium transition-colors" style={{ letterSpacing: '0.05em' }}>Weather</a></li>
-            <li><a href="#ask-tavira" className="text-sm uppercase hover:text-accent font-medium transition-colors" style={{ letterSpacing: '0.05em' }}>Ask Tavira</a></li>
-            <li><a href="#itinerary-planner" className="text-sm uppercase hover:text-accent font-medium transition-colors" style={{ letterSpacing: '0.05em' }}>Itinerary</a></li>
-          </ul>
-        </div>
-      </nav>
-
-      {/* 2 & 3. Editorial Intro & At a Glance */}
-      <DestinationOverview destination={destination} />
-
-      {/* 4. Current Weather */}
-      <section id="weather" style={{ backgroundColor: 'var(--color-text-primary)', color: 'var(--color-bg-primary)', padding: 'var(--space-16) 0' }}>
-        <div className="container">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-8)' }}>
-            <div>
-              <p className="text-xs uppercase" style={{ letterSpacing: '0.1em', marginBottom: 'var(--space-2)', color: 'rgba(255,255,255,0.5)' }}>Live Conditions</p>
-              <h2 className="text-serif text-3xl">Current Climate</h2>
-              <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: 'var(--space-2)' }}>Local time: {weather?.localTime || '...'}</p>
-            </div>
+      {/* 2. Destination Editorial Narrative & Live Weather Grid */}
+      <section className="section-spacing container">
+        <div className="dest-overview-grid">
+          
+          {/* Left: Deep Narrative Storytelling */}
+          <div className="dest-narrative-col">
+            <span className="dest-section-eyebrow">TAVIRA FIELD GUIDE</span>
+            <h2 className="dest-section-title">The spirit of {destination.name}.</h2>
+            <p className="dest-narrative-lead">{destination.description}</p>
             
-            {weather ? (
-              <div style={{ display: 'flex', gap: 'var(--space-12)', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <Thermometer size={40} className="text-accent" strokeWidth={1} />
-                  <div>
-                    <p className="text-4xl" style={{ fontWeight: 300, lineHeight: 1 }}>{weather.temperature}°C</p>
-                    <p className="text-sm uppercase" style={{ letterSpacing: '0.05em', marginTop: 'var(--space-1)', color: 'rgba(255,255,255,0.7)' }}>{weather.condition}</p>
+            {destination.detailedHighlights && destination.detailedHighlights.length > 0 && (
+              <div className="dest-highlights-list">
+                {destination.detailedHighlights.map((hl: Highlight, hIdx: number) => (
+                  <div key={hIdx} className="dest-highlight-item">
+                    <span className="highlight-num">0{hIdx + 1}</span>
+                    <div>
+                      <h4 className="highlight-title">{hl.title}</h4>
+                      <p className="highlight-desc">{hl.description}</p>
+                    </div>
                   </div>
-                </div>
-                
-                <div style={{ width: '1px', height: '40px', backgroundColor: 'rgba(255,255,255,0.2)' }} className="hidden md-block" />
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', color: 'rgba(255,255,255,0.8)' }}>
-                  <p className="text-sm flex items-center gap-3"><Wind size={16} opacity={0.6}/> Wind {weather.windSpeed} km/h</p>
-                  <p className="text-sm flex items-center gap-3"><Droplets size={16} opacity={0.6}/> Humidity {weather.humidity}%</p>
-                </div>
+                ))}
               </div>
-            ) : (
-              <div style={{ color: 'rgba(255,255,255,0.5)' }}>Syncing local meteorological data...</div>
+            )}
+
+            {/* Signature Experiences */}
+            {destination.details?.signatureExperiences && (
+              <div className="dest-signatures-box">
+                <span className="signatures-title">Signature Moments</span>
+                <ul className="signatures-list">
+                  {destination.details.signatureExperiences.map((exp: string, eIdx: number) => (
+                    <li key={eIdx}>
+                      <ChevronRight size={14} className="text-accent" />
+                      <span>{exp}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
+
+          {/* Right: Live Weather & Practical Notes */}
+          <div className="dest-sidebar-col">
+            <WeatherWidget
+              lat={destination.coordinates.lat}
+              lng={destination.coordinates.lng}
+              locationName={destination.name}
+              country={destination.country}
+            />
+
+            {/* Local Note Box */}
+            {destination.details?.localNote && (
+              <div className="dest-local-note-card">
+                <span className="local-note-eyebrow">INSIDER DISPATCH</span>
+                <p className="local-note-quote">"{destination.details.localNote}"</p>
+                <div className="local-note-footer">
+                  <span>Tavira Editorial Desk</span>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive ARIA Companion Card */}
+            <div className="dest-aria-card">
+              <div className="flex items-center gap-3 mb-3">
+                <Sparkles size={20} className="text-accent" />
+                <h4 className="aria-card-title">ARIA Travel Companion</h4>
+              </div>
+              <p className="aria-card-desc">
+                Have specific curiosities about {destination.name}? ARIA is ready with custom culinary routes and seasonal advice.
+              </p>
+              <button onClick={() => openAria()} className="aria-card-btn">
+                <span>Start Conversation</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      {/* 5. Famous Places */}
-      <section id="places" className="container" style={{ padding: 'var(--space-32) 0' }}>
-        <h2 className="text-serif text-center" style={{ fontSize: 'var(--text-4xl)', marginBottom: 'var(--space-24)' }}>Notable Places</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-32)' }}>
-          {destination.places.map((place, index) => {
-            const pImg = imageService.getImage(place.imageId);
-            const isEven = index % 2 === 0;
-            return (
-              <div key={place.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-16)', alignItems: 'center' }} className="place-grid">
-                <div style={{ order: isEven ? 1 : 2 }}>
-                  <img src={pImg.url} alt={pImg.alt} style={{ width: '100%', height: '500px', objectFit: 'cover' }} loading="lazy" />
-                </div>
-                <div style={{ order: isEven ? 2 : 1, padding: isEven ? '0 var(--space-8) 0 0' : '0 0 0 var(--space-8)' }} className="place-content">
-                  <p className="text-xs uppercase text-accent" style={{ letterSpacing: '0.1em', marginBottom: 'var(--space-4)', fontWeight: 600 }}>0{index + 1}</p>
-                  <h3 className="text-serif text-4xl" style={{ marginBottom: 'var(--space-6)', lineHeight: 1.2 }}>{place.name}</h3>
-                  <p className="text-secondary text-lg" style={{ marginBottom: 'var(--space-8)', lineHeight: 1.8 }}>{place.description}</p>
+      {/* 3. Famous Places: Editorial Numbered Storytelling (Section 12 Master Prompt) */}
+      <section className="places-section">
+        <div className="container">
+          
+          <div className="places-section-header">
+            <span className="dest-section-eyebrow">CURATED EXPLORATION</span>
+            <h2 className="places-heading">Places worth experiencing.</h2>
+            <p className="places-supporting">
+              Remarkable sanctuaries, architectural wonders, and quiet corners selected for depth and character.
+            </p>
+          </div>
+
+          <div className="places-editorial-stream">
+            {destination.places.map((place: Place, idx: number) => {
+              const placeImg = imageService.getImage(place.imageId);
+              const isEven = idx % 2 === 1;
+
+              return (
+                <article key={place.id} className={`place-story-row ${isEven ? 'row-reversed' : ''}`}>
                   
-                  <div style={{ display: 'flex', gap: 'var(--space-8)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-6)' }}>
-                    <div>
-                      <p className="text-xs text-secondary uppercase" style={{ letterSpacing: '0.05em', marginBottom: '8px' }}>Duration</p>
-                      <p className="text-sm flex items-center gap-2 font-medium"><Clock size={14} className="text-secondary" />{place.duration}</p>
+                  {/* Media Column */}
+                  <div className="place-story-media" onClick={() => setActivePlaceModal(place)}>
+                    <img
+                      src={dynamicPlaceImages[place.id] || placeImg.url}
+                      alt={place.name}
+                      className="place-story-img"
+                      loading="lazy"
+                    />
+                    <div className="place-story-img-overlay">
+                      <span className="view-place-pill">
+                        <Eye size={14} /> View Details
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-xs text-secondary uppercase" style={{ letterSpacing: '0.05em', marginBottom: '8px' }}>Best Time</p>
-                      <p className="text-sm font-medium">{place.bestTime}</p>
-                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
 
-      {/* 6. Ask Tavira */}
-      <section id="ask-tavira" style={{ backgroundColor: 'var(--color-bg-secondary)', padding: 'var(--space-32) 0' }}>
-        <div className="container" style={{ maxWidth: '800px' }}>
-          <div style={{ textAlign: 'center', marginBottom: 'var(--space-12)' }}>
-            <Sparkles className="text-accent mx-auto" size={24} style={{ marginBottom: 'var(--space-4)' }} />
-            <h2 className="text-serif" style={{ fontSize: 'var(--text-4xl)', marginBottom: 'var(--space-4)' }}>Ask Tavira</h2>
-            <p className="text-secondary text-lg">Your intelligent, context-aware companion for {destination.name}.</p>
-          </div>
+                  {/* Editorial Narrative Column */}
+                  <div className="place-story-content">
+                    <span className="place-story-index">
+                      0{idx + 1}
+                    </span>
 
-          <div style={{ 
-            backgroundColor: 'var(--color-bg-primary)', 
-            border: '1px solid var(--color-border)',
-            display: 'flex',
-            flexDirection: 'column',
-            height: '450px',
-            boxShadow: 'var(--shadow-md)'
-          }}>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-              {conversation.length === 0 ? (
-                <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                  <p style={{ marginBottom: 'var(--space-8)', fontSize: 'var(--text-lg)' }}>Curious about something specific?</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)', justifyContent: 'center' }}>
-                    <button onClick={() => handleQuickQuestion("What's the best local food to try?")} className="badge" style={{ cursor: 'pointer', border: '1px solid var(--color-border)', padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-sm)' }}>Local Dining</button>
-                    <button onClick={() => handleQuickQuestion("How should I pack for the weather?")} className="badge" style={{ cursor: 'pointer', border: '1px solid var(--color-border)', padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-sm)' }}>Packing Guide</button>
-                    <button onClick={() => handleQuickQuestion("Is it easy to get around on foot?")} className="badge" style={{ cursor: 'pointer', border: '1px solid var(--color-border)', padding: 'var(--space-2) var(--space-4)', fontSize: 'var(--text-sm)' }}>Transportation</button>
-                  </div>
-                </div>
-              ) : (
-                conversation.map((msg, idx) => (
-                  <div key={idx} style={{ 
-                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    backgroundColor: msg.role === 'user' ? 'var(--color-bg-secondary)' : 'transparent',
-                    padding: msg.role === 'user' ? 'var(--space-4)' : 'var(--space-2) 0',
-                    maxWidth: '85%',
-                    lineHeight: 1.7,
-                    borderLeft: msg.role === 'assistant' ? '2px solid var(--color-accent-primary)' : 'none',
-                    paddingLeft: msg.role === 'assistant' ? 'var(--space-4)' : (msg.role === 'user' ? 'var(--space-4)' : '0')
-                  }}>
-                    {msg.role === 'assistant' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '11px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
-                        Tavira Assistant
-                      </div>
-                    )}
-                    <p style={{ color: msg.role === 'user' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>{msg.text}</p>
-                  </div>
-                ))
-              )}
-              {assistantLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--color-text-secondary)', paddingLeft: 'var(--space-4)', borderLeft: '2px solid var(--color-border)' }}>
-                  <div className="typing-dot" /> <div className="typing-dot" style={{ animationDelay: '0.2s' }} /> <div className="typing-dot" style={{ animationDelay: '0.4s' }} />
-                </div>
-              )}
-            </div>
-            
-            <form id="assistant-form" onSubmit={handleAssistantSubmit} style={{ 
-              borderTop: '1px solid var(--color-border)',
-              padding: 'var(--space-4)',
-              display: 'flex',
-              gap: 'var(--space-4)',
-              backgroundColor: 'var(--color-bg-primary)'
-            }}>
-              <input 
-                type="text" 
-                value={assistantMsg}
-                onChange={(e) => setAssistantMsg(e.target.value)}
-                placeholder={`Ask about ${destination.name}...`}
-                style={{ flex: 1, border: 'none', outline: 'none', padding: 'var(--space-2)', background: 'transparent', fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)' }}
-              />
-              <Button type="submit" variant="primary" disabled={!assistantMsg.trim() || assistantLoading}>
-                Ask
-              </Button>
-            </form>
-          </div>
-        </div>
-      </section>
+                    <span className="place-story-location">
+                      {destination.name}, {destination.country}
+                    </span>
 
-      {/* 7 & 8. Itinerary Planner */}
-      <section id="itinerary-planner" className="container" style={{ padding: 'var(--space-32) 0' }}>
-        <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto var(--space-16)' }}>
-          <p className="text-xs uppercase text-accent" style={{ letterSpacing: '0.1em', marginBottom: 'var(--space-4)', fontWeight: 600 }}>Plan a journey</p>
-          <h2 className="text-serif" style={{ fontSize: 'var(--text-4xl)', marginBottom: 'var(--space-4)' }}>Structure your days</h2>
-          <p className="text-secondary text-lg">Generate a thoughtful, balanced itinerary tailored to the rhythm of {destination.name}.</p>
-        </div>
+                    <h3 className="place-story-title">{place.name}</h3>
 
-        <div style={{ 
-          display: 'flex', gap: 'var(--space-6)', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-16)',
-          padding: 'var(--space-8)', border: '1px solid var(--color-border)'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label className="text-xs uppercase text-secondary" style={{ letterSpacing: '0.05em' }}>Duration</label>
-            <select value={itinDays} onChange={(e) => setItinDays(e.target.value)} className="input" style={{ minWidth: '150px' }}>
-              <option value="1">1 Day</option>
-              <option value="2">2 Days</option>
-              <option value="3">3 Days</option>
-              <option value="5">5 Days</option>
-            </select>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label className="text-xs uppercase text-secondary" style={{ letterSpacing: '0.05em' }}>Travel Style</label>
-            <select value={itinStyle} onChange={(e) => setItinStyle(e.target.value)} className="input" style={{ minWidth: '200px' }}>
-              <option value="Balanced">Balanced</option>
-              <option value="Slow">Relaxed & Slow</option>
-              <option value="Culture-heavy">Culture Heavy</option>
-              <option value="Outdoors">Outdoors & Nature</option>
-            </select>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <Button onClick={handleGenerateItinerary} disabled={itinLoading} variant="primary" style={{ height: '42px', padding: '0 var(--space-8)' }}>
-              {itinLoading ? 'Curating...' : 'Generate'}
-            </Button>
-          </div>
-        </div>
+                    <p className="place-story-desc">"{place.description}"</p>
 
-        {/* Itinerary Result (Timeline Layout) */}
-        {itinLoading ? (
-          <div style={{ textAlign: 'center', padding: 'var(--space-12) 0', color: 'var(--color-text-secondary)' }}>
-            <div className="spinner" style={{ margin: '0 auto var(--space-4)' }} />
-            Designing your days...
-          </div>
-        ) : itinerary ? (
-          <div style={{ maxWidth: '800px', margin: '0 auto' }} className="animate-slide-up">
-            {itinerary.map((day) => (
-              <div key={day.day} style={{ marginBottom: 'var(--space-16)' }}>
-                <h3 className="text-serif" style={{ fontSize: 'var(--text-3xl)', borderBottom: '1px solid var(--color-text-primary)', paddingBottom: 'var(--space-2)', marginBottom: 'var(--space-8)' }}>
-                  Day 0{day.day}
-                </h3>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                  {day.items.map((item, i) => (
-                    <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 'var(--space-8)', position: 'relative', paddingBottom: i !== day.items.length - 1 ? 'var(--space-8)' : '0' }} className="itinerary-item">
-                      
-                      {/* Timeline rule */}
-                      {i !== day.items.length - 1 && (
-                        <div style={{ position: 'absolute', left: '120px', top: '24px', bottom: 0, width: '1px', backgroundColor: 'var(--color-border)' }} className="timeline-rule" />
+                    <div className="place-story-meta">
+                      {place.duration && (
+                        <div className="place-meta-item">
+                          <Clock size={13} className="text-accent" />
+                          <span>Visit: {place.duration}</span>
+                        </div>
                       )}
-
-                      <div className="text-xs uppercase text-secondary" style={{ paddingTop: '4px', letterSpacing: '0.1em', fontWeight: 500 }}>
-                        {item.timeOfDay}
-                      </div>
-                      
-                      <div style={{ paddingLeft: 'var(--space-6)', position: 'relative' }}>
-                        {/* Timeline dot */}
-                        <div style={{ position: 'absolute', left: '-4px', top: '8px', width: '9px', height: '9px', backgroundColor: 'var(--color-bg-primary)', border: '2px solid var(--color-accent-primary)', borderRadius: '50%' }} className="timeline-dot" />
-                        
-                        <h4 className="text-xl text-serif" style={{ marginBottom: 'var(--space-1)' }}>{item.activity}</h4>
-                        {item.place && <p className="text-sm uppercase text-secondary" style={{ letterSpacing: '0.05em', marginBottom: 'var(--space-4)' }}>{item.place}</p>}
-                        <p className="text-secondary" style={{ lineHeight: 1.6, marginBottom: 'var(--space-4)' }}>{item.note}</p>
-                        <p className="text-xs text-secondary flex items-center gap-2"><Clock size={12}/> {item.duration}</p>
-                      </div>
+                      {place.bestTime && (
+                        <div className="place-meta-item">
+                          <Compass size={13} className="text-accent" />
+                          <span>Recommended: {place.bestTime}</span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+
+                    <button 
+                      onClick={() => setActivePlaceModal(place)}
+                      className="place-story-cta"
+                    >
+                      <span>Explore this place</span>
+                      <ArrowLeft size={16} className="cta-arrow-rotate" />
+                    </button>
+                  </div>
+
+                </article>
+              );
+            })}
           </div>
-        ) : null}
+
+        </div>
       </section>
 
-      {/* 9. Related Destinations */}
-      {related.length > 0 && (
-        <section style={{ backgroundColor: 'var(--color-bg-secondary)', padding: 'var(--space-24) 0' }}>
-          <div className="container">
-            <h2 className="text-serif" style={{ fontSize: 'var(--text-3xl)', marginBottom: 'var(--space-12)', textAlign: 'center' }}>Continue exploring</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-8)' }}>
-              {related.map(dest => {
-                const img = imageService.getImage(dest.heroImageId);
-                return (
-                  <Link to={`/destinations/${dest.slug}`} key={dest.id} className="group" style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ height: '300px', overflow: 'hidden', marginBottom: 'var(--space-4)' }}>
-                      <img src={img.url} alt={img.alt} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform var(--transition-slow)' }} className="related-img" loading="lazy" />
-                    </div>
-                    <div>
-                      <h3 className="text-serif text-2xl" style={{ marginBottom: 'var(--space-1)' }}>{dest.name}</h3>
-                      <p className="text-sm uppercase text-secondary" style={{ letterSpacing: '0.05em' }}>{dest.country}</p>
-                    </div>
-                  </Link>
-                );
-              })}
+      {/* 4. Day-by-Day Interactive Itinerary Planner (Pre-filled for this destination) */}
+      <ItineraryPlanner
+        id="itinerary-planner"
+        initialDestination={destination.name}
+        initialCountry={destination.country}
+      />
+
+      {/* 5. Related Destinations */}
+      {relatedDestinations.length > 0 && (
+        <section className="section-spacing container">
+          <div className="flex justify-between items-end mb-12">
+            <div>
+              <span className="dest-section-eyebrow">CONTINUE EXPLORING</span>
+              <h2 className="text-4xl text-serif">More from {destination.region}.</h2>
             </div>
+            <Link to="/explore" className="btn-see-all">
+              All Destinations <ChevronRight size={14} />
+            </Link>
+          </div>
+
+          <div className="related-dest-grid">
+            {relatedDestinations.map((rel: Destination) => {
+              const relImg = imageService.getImage(rel.heroImageId);
+              return (
+                <Link to={`/destinations/${rel.slug}`} key={rel.id} className="related-card">
+                  <div className="related-img-wrap">
+                    <img src={dynamicRelatedImages[rel.id] || relImg.url} alt={rel.name} className="related-img" loading="lazy" />
+                  </div>
+                  <span className="related-country">{rel.country}</span>
+                  <h3 className="related-name">{rel.name}</h3>
+                  <p className="related-tagline">{rel.tagline}</p>
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* Internal CSS for page specific animations/layout fixes */}
+      {/* Place Detail Modal */}
+      {activePlaceModal && (
+        <div className="place-modal-backdrop" onClick={() => setActivePlaceModal(null)}>
+          <div className="place-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setActivePlaceModal(null)} className="place-modal-close">
+              ×
+            </button>
+            <div className="place-modal-img-wrap">
+              <img
+                src={imageService.getImage(activePlaceModal.imageId).url}
+                alt={activePlaceModal.name}
+                className="place-modal-img"
+              />
+            </div>
+            <div className="place-modal-body">
+              <span className="place-modal-location">{destination.name}, {destination.country}</span>
+              <h3 className="place-modal-title">{activePlaceModal.name}</h3>
+              <p className="place-modal-desc">{activePlaceModal.description}</p>
+              
+              <div className="place-modal-meta-grid">
+                <div>
+                  <strong>Recommended Duration</strong>
+                  <span>{activePlaceModal.duration || '1.5 – 2 hours'}</span>
+                </div>
+                <div>
+                  <strong>Ideal Arrival Time</strong>
+                  <span>{activePlaceModal.bestTime || 'Morning golden hour'}</span>
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-4">
+                <Button 
+                  onClick={() => {
+                    setActivePlaceModal(null);
+                    openAria({
+                      name: destination.name,
+                      country: destination.country,
+                      places: [{ name: activePlaceModal.name, description: activePlaceModal.description }]
+                    });
+                  }} 
+                  variant="primary"
+                >
+                  <Sparkles size={15} /> Ask ARIA about {activePlaceModal.name}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
-        @media (max-width: 768px) {
-          .detail-grid { grid-template-columns: 1fr !important; gap: var(--space-12) !important; }
-          .place-grid { grid-template-columns: 1fr !important; gap: var(--space-8) !important; }
-          .place-grid > div { order: 0 !important; }
-          .place-content { padding: 0 !important; }
-          .itinerary-item { grid-template-columns: 1fr !important; gap: var(--space-2) !important; }
-          .timeline-rule { display: none; }
-          .timeline-dot { display: none; }
-          .itinerary-item > div:last-child { padding-left: 0 !important; }
+        .dest-hero-section {
+          position: relative;
+          height: 85vh;
+          min-height: 600px;
+          display: flex;
+          align-items: flex-end;
+          overflow: hidden;
+          background-color: #181817;
+          color: #F7F4EE;
         }
-        .sub-nav-list::-webkit-scrollbar { display: none; }
-        .typing-dot { width: 6px; height: 6px; background-color: var(--color-text-secondary); border-radius: 50%; animation: typePulse 1.4s infinite ease-in-out; }
-        @keyframes typePulse { 0%, 100% { transform: scale(0.8); opacity: 0.5; } 50% { transform: scale(1.2); opacity: 1; } }
-        .spinner { width: 30px; height: 30px; border: 2px solid var(--color-border); border-top-color: var(--color-text-primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .group:hover .related-img { transform: scale(1.05); }
+
+        .dest-hero-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transform: scale(1.03);
+          transition: transform 10s ease-out;
+        }
+
+        .dest-hero-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(20, 20, 19, 0.3) 0%,
+            rgba(20, 20, 19, 0.45) 45%,
+            rgba(20, 20, 19, 0.88) 100%
+          );
+        }
+
+        .dest-hero-container {
+          position: relative;
+          z-index: 10;
+          padding-bottom: clamp(40px, 6vw, 80px);
+          width: 100%;
+        }
+
+        .dest-hero-breadcrumbs {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: rgba(247, 244, 238, 0.75);
+          margin-bottom: 24px;
+        }
+
+        .breadcrumb-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: inherit;
+          text-decoration: none;
+          transition: color 0.2s;
+        }
+
+        .breadcrumb-back:hover {
+          color: #F7F4EE;
+        }
+
+        .breadcrumb-separator {
+          opacity: 0.4;
+        }
+
+        .dest-hero-eyebrow {
+          display: block;
+          font-size: 12px;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-accent-primary);
+          margin-bottom: 12px;
+        }
+
+        .dest-hero-title {
+          font-family: var(--font-serif);
+          font-size: clamp(3.5rem, 9vw, 7.5rem);
+          line-height: 0.95;
+          font-weight: 400;
+          color: #F7F4EE;
+          margin: 0 0 16px 0;
+          letter-spacing: -0.02em;
+        }
+
+        .dest-hero-tagline {
+          font-size: clamp(1.1rem, 2vw, 1.5rem);
+          line-height: 1.5;
+          color: rgba(247, 244, 238, 0.9);
+          max-width: 680px;
+          font-weight: 300;
+          margin-bottom: 32px;
+        }
+
+        .dest-hero-stats-strip {
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+        }
+
+        .hero-stat-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 18px;
+          border-radius: 9999px;
+          background-color: rgba(247, 244, 238, 0.12);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(247, 244, 238, 0.25);
+          font-size: 12px;
+          color: #F7F4EE;
+        }
+
+        .hero-stat-btn {
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .hero-stat-btn:hover {
+          background-color: rgba(247, 244, 238, 0.25);
+        }
+
+        .dest-overview-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 60px;
+        }
+
+        @media (min-width: 1024px) {
+          .dest-overview-grid {
+            grid-template-columns: 1.3fr 1fr;
+            gap: 80px;
+          }
+        }
+
+        .dest-section-eyebrow {
+          display: block;
+          font-size: 11px;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-accent-primary);
+          margin-bottom: 12px;
+        }
+
+        .dest-section-title {
+          font-family: var(--font-serif);
+          font-size: clamp(2.5rem, 4vw, 3.5rem);
+          line-height: 1.1;
+          margin: 0 0 24px 0;
+          color: var(--color-text-primary);
+        }
+
+        .dest-narrative-lead {
+          font-size: 1.2rem;
+          line-height: 1.7;
+          color: var(--color-text-secondary);
+          margin-bottom: 40px;
+        }
+
+        .dest-highlights-list {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          margin-bottom: 40px;
+        }
+
+        .dest-highlight-item {
+          display: flex;
+          gap: 20px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .highlight-num {
+          font-family: var(--font-serif);
+          font-size: 1.5rem;
+          color: var(--color-accent-primary);
+          line-height: 1;
+        }
+
+        .highlight-title {
+          font-family: var(--font-serif);
+          font-size: 1.25rem;
+          margin: 0 0 6px 0;
+          color: var(--color-text-primary);
+        }
+
+        .highlight-desc {
+          font-size: 14.5px;
+          color: var(--color-text-secondary);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .dest-signatures-box {
+          background-color: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          padding: 28px;
+          border-radius: 2px;
+        }
+
+        .signatures-title {
+          display: block;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          margin-bottom: 16px;
+        }
+
+        .signatures-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .signatures-list li {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14.5px;
+          color: var(--color-text-secondary);
+        }
+
+        .dest-sidebar-col {
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+        }
+
+        .dest-local-note-card {
+          background-color: #141413;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-left: 3px solid var(--color-accent-primary);
+          padding: 24px 28px;
+          border-radius: 2px;
+        }
+
+        .local-note-eyebrow {
+          display: block;
+          font-size: 10px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          font-weight: 600;
+          color: var(--color-accent-primary);
+          margin-bottom: 12px;
+        }
+
+        .local-note-quote {
+          font-family: var(--font-serif);
+          font-size: 1.2rem;
+          line-height: 1.5;
+          font-style: italic;
+          color: #F5F2EB;
+          margin: 0 0 12px 0;
+        }
+
+        .local-note-footer {
+          font-size: 11px;
+          color: #9E9A91;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .dest-aria-card {
+          background-color: #141413;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #F5F2EB;
+          padding: 28px;
+          border-radius: 2px;
+        }
+
+        .aria-card-title {
+          font-family: var(--font-serif);
+          font-size: 1.25rem;
+          font-weight: 400;
+          margin: 0;
+          color: #F5F2EB;
+        }
+
+        .aria-card-desc {
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: #9E9A91;
+          margin: 0 0 20px 0;
+        }
+
+        .aria-card-btn {
+          width: 100%;
+          height: 46px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background-color: var(--color-accent-primary);
+          color: #0D0D0C;
+          border: none;
+          border-radius: 2px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .aria-card-btn:hover {
+          background-color: var(--color-accent-hover);
+        }
+
+        .aria-card-btn:hover {
+          background-color: #E8E2D5;
+        }
+
+        /* Places Section Styling */
+        .places-section {
+          background-color: var(--color-bg-secondary);
+          padding: clamp(80px, 10vw, 140px) 0;
+        }
+
+        .places-section-header {
+          text-align: center;
+          max-width: 680px;
+          margin: 0 auto clamp(40px, 6vw, 70px);
+        }
+
+        .places-heading {
+          font-family: var(--font-serif);
+          font-size: clamp(2.5rem, 5vw, 4rem);
+          margin: 0 0 16px 0;
+          color: var(--color-text-primary);
+        }
+
+        .places-supporting {
+          font-size: 17px;
+          line-height: 1.6;
+          color: var(--color-text-secondary);
+        }
+
+        .places-editorial-stream {
+          display: flex;
+          flex-direction: column;
+          gap: clamp(60px, 8vw, 110px);
+        }
+
+        .place-story-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 40px;
+          align-items: center;
+        }
+
+        @media (min-width: 900px) {
+          .place-story-row {
+            grid-template-columns: 1.1fr 1fr;
+            gap: 64px;
+          }
+          .place-story-row.row-reversed {
+            grid-template-columns: 1fr 1.1fr;
+          }
+          .place-story-row.row-reversed .place-story-media {
+            order: 2;
+          }
+          .place-story-row.row-reversed .place-story-content {
+            order: 1;
+          }
+        }
+
+        .place-story-media {
+          position: relative;
+          aspect-ratio: 16/10;
+          overflow: hidden;
+          cursor: pointer;
+          border-radius: 2px;
+        }
+
+        .place-story-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .place-story-media:hover .place-story-img {
+          transform: scale(1.05);
+        }
+
+        .place-story-img-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .place-story-media:hover .place-story-img-overlay {
+          opacity: 1;
+        }
+
+        .view-place-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 10px 20px;
+          background-color: #F7F4EE;
+          color: #181817;
+          border-radius: 9999px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+
+        .place-story-content {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .place-story-index {
+          font-family: var(--font-serif);
+          font-size: clamp(2rem, 3.5vw, 3rem);
+          line-height: 1;
+          color: var(--color-accent-primary);
+          margin-bottom: 12px;
+        }
+
+        .place-story-location {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+          color: var(--color-text-secondary);
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+
+        .place-story-title {
+          font-family: var(--font-serif);
+          font-size: clamp(2rem, 3.5vw, 2.75rem);
+          line-height: 1.1;
+          color: var(--color-text-primary);
+          margin: 0 0 16px 0;
+        }
+
+        .place-story-desc {
+          font-size: 17px;
+          line-height: 1.65;
+          color: var(--color-text-secondary);
+          margin: 0 0 24px 0;
+        }
+
+        .place-story-meta {
+          display: flex;
+          gap: 20px;
+          margin-bottom: 28px;
+          flex-wrap: wrap;
+        }
+
+        .place-meta-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--color-text-primary);
+        }
+
+        .place-story-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          border-bottom: 1px solid currentColor;
+          padding-bottom: 4px;
+          transition: gap 0.2s;
+        }
+
+        .place-story-cta:hover {
+          gap: 14px;
+        }
+
+        .cta-arrow-rotate {
+          transform: rotate(135deg);
+        }
+
+        .btn-see-all {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          font-weight: 600;
+          color: var(--color-accent-primary);
+        }
+
+        .related-dest-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 32px;
+        }
+
+        .related-card {
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .related-img-wrap {
+          aspect-ratio: 4/5;
+          overflow: hidden;
+          margin-bottom: 16px;
+        }
+
+        .related-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.6s ease;
+        }
+
+        .related-card:hover .related-img {
+          transform: scale(1.05);
+        }
+
+        .related-country {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--color-text-secondary);
+          display: block;
+          margin-bottom: 4px;
+        }
+
+        .related-name {
+          font-family: var(--font-serif);
+          font-size: 1.5rem;
+          margin: 0 0 6px 0;
+        }
+
+        .related-tagline {
+          font-size: 14px;
+          color: var(--color-text-secondary);
+          line-height: 1.5;
+        }
+
+        /* Modal Styles */
+        .place-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 150;
+          background-color: rgba(18, 18, 17, 0.7);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+
+        .place-modal-panel {
+          position: relative;
+          width: 100%;
+          max-width: 680px;
+          background-color: #F7F4EE;
+          border-radius: 2px;
+          overflow: hidden;
+          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+        }
+
+        .place-modal-close {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          z-index: 10;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background-color: rgba(247, 244, 238, 0.9);
+          border: none;
+          font-size: 24px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+        }
+
+        .place-modal-img-wrap {
+          width: 100%;
+          height: 320px;
+        }
+
+        .place-modal-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .place-modal-body {
+          padding: 32px;
+        }
+
+        .place-modal-location {
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--color-accent-primary);
+          font-weight: 600;
+          display: block;
+          margin-bottom: 6px;
+        }
+
+        .place-modal-title {
+          font-family: var(--font-serif);
+          font-size: 2rem;
+          margin: 0 0 16px 0;
+        }
+
+        .place-modal-desc {
+          font-size: 16px;
+          line-height: 1.6;
+          color: #4A4742;
+          margin-bottom: 24px;
+        }
+
+        .place-modal-meta-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          padding: 16px 0;
+          border-top: 1px solid var(--color-border);
+          border-bottom: 1px solid var(--color-border);
+          font-size: 13px;
+        }
+
+        .place-modal-meta-grid strong {
+          display: block;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: #6E6A62;
+          margin-bottom: 4px;
+        }
       `}</style>
     </div>
   );

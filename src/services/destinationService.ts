@@ -26,17 +26,22 @@ export const destinationService = {
   },
 
   async searchAndFilter(filters: DestinationFilters): Promise<Destination[]> {
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    const rawQuery = (filters.query || '').trim().toLowerCase();
     
     return MOCK_DESTINATIONS.filter((dest) => {
       let matches = true;
 
-      if (filters.query) {
-        const query = filters.query.toLowerCase();
+      if (rawQuery) {
         const matchesQuery = 
-          dest.name.toLowerCase().includes(query) || 
-          dest.country.toLowerCase().includes(query) ||
-          dest.region.toLowerCase().includes(query);
+          dest.name.toLowerCase().includes(rawQuery) || 
+          dest.country.toLowerCase().includes(rawQuery) ||
+          dest.region.toLowerCase().includes(rawQuery) ||
+          (dest.tagline && dest.tagline.toLowerCase().includes(rawQuery)) ||
+          (dest.description && dest.description.toLowerCase().includes(rawQuery)) ||
+          (dest.places && dest.places.some(p => p.name.toLowerCase().includes(rawQuery) || p.description.toLowerCase().includes(rawQuery))) ||
+          (dest.highlights && dest.highlights.some(h => h.toLowerCase().includes(rawQuery))) ||
+          (dest.moods && dest.moods.some(m => m.toLowerCase().includes(rawQuery)));
+        
         if (!matchesQuery) matches = false;
       }
 

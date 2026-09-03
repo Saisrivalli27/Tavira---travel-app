@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Search } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { MegaMenu } from './MegaMenu';
+import { Menu, Search, MapPin, Sparkles, ChevronDown, Compass } from 'lucide-react';
 import { MobileMenu } from './MobileMenu';
 import { SearchOverlay } from './SearchOverlay';
+import { useTravel } from '../../context/TravelContext';
 
 export const Header: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [activeMegaMenu, setActiveMegaMenu] = useState<'destinations' | 'moods' | null>(null);
   
   const location = useLocation();
   const navigate = useNavigate();
+  const { openAria, openLocationModal, activeLocation } = useTravel();
 
   const isHome = location.pathname === '/';
-  const isDestination = location.pathname.startsWith('/destinations/');
+  const isExplore = location.pathname.startsWith('/explore') || location.pathname.startsWith('/destinations');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,212 +29,314 @@ export const Header: React.FC = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
-    setActiveMegaMenu(null);
   }, [location.pathname]);
 
-  // Handle escape key for mobile menu
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setActiveMegaMenu(null);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
-
   const handlePlanJourney = () => {
-    if (isDestination) {
-      const el = document.getElementById('itinerary-planner');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-        setMobileMenuOpen(false);
+    if (isHome) {
+      const plannerEl = document.getElementById('tavira-planner');
+      if (plannerEl) {
+        plannerEl.scrollIntoView({ behavior: 'smooth' });
+        return;
       }
-    } else {
-      navigate('/explore');
-      setMobileMenuOpen(false);
     }
+    navigate('/explore');
   };
-
-  const navLinks = [
-    { name: 'Destinations', path: '/explore' },
-    { name: 'Inspiration', path: '/journal' },
-    { name: 'Plan a Trip', path: '/explore' }
-  ];
 
   return (
     <>
-      <header 
-        style={{ 
-          position: 'fixed', 
-          top: 0, left: 0, right: 0, 
-          height: 'var(--header-height)',
-          zIndex: 50,
-          backgroundColor: isHome && !isScrolled ? 'rgba(23, 23, 22, 0)' : 'rgba(245, 242, 236, 0.95)',
-          backdropFilter: isHome && !isScrolled ? 'none' : 'blur(12px)',
-          WebkitBackdropFilter: isHome && !isScrolled ? 'none' : 'blur(12px)',
-          color: isHome && !isScrolled ? 'var(--color-white)' : 'var(--color-text-primary)',
-          borderBottom: isHome && !isScrolled ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid rgba(23, 23, 22, 0.08)',
-          transition: 'all 400ms cubic-bezier(0.16, 1, 0.3, 1)'
-        }}
-      >
-        <div className="container header-grid" style={{ height: '100%', alignItems: 'center' }}>
+      <header className={`editorial-header ${isScrolled ? 'header-scrolled' : ''}`}>
+        <div className="container header-inner">
           
-          {/* Left Column: Brand Logo */}
-          <div className="header-left" style={{ display: 'flex', alignItems: 'center' }}>
-            <Link to="/" className="brand-logo" style={{ 
-              fontFamily: 'var(--font-serif)', 
-              fontSize: '26px', 
-              fontWeight: 400, 
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'inherit',
-              textDecoration: 'none'
-            }}>
-              TAVIRA
+          {/* Left: Brand Wordmark with Star / Compass Emblem */}
+          <div className="header-left">
+            <Link to="/" className="brand-link" aria-label="Tavira Home">
+              <span className="brand-emblem">
+                <Compass size={18} strokeWidth={1.75} />
+              </span>
+              <span className="brand-text">TAVIRA</span>
             </Link>
           </div>
 
-          {/* Center Column: Navigation Links */}
-          <nav className="header-center desktop-nav" style={{ display: 'none', gap: '32px', alignItems: 'center', justifyContent: 'center' }}>
-            {navLinks.map(link => (
-              <Link 
-                key={link.name}
-                to={link.path} 
-                className="nav-link" 
-                style={{ 
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '12px',
-                  textTransform: 'uppercase',
-                  fontWeight: 600, 
-                  letterSpacing: '0.12em',
-                  opacity: 0.9,
-                  transition: 'opacity 0.2s',
-                  padding: 'var(--space-2) 0'
-                }}
-              >
-                {link.name}
-              </Link>
-            ))}
+          {/* Center: Clean, Understandable Everyday Navigation */}
+          <nav className="header-center desktop-only" aria-label="Main Navigation">
+            <Link 
+              to="/explore" 
+              className={`nav-item ${isExplore ? 'nav-item-active' : ''}`}
+            >
+              Destinations
+            </Link>
+            <button 
+              onClick={() => openAria()}
+              className="nav-item nav-btn-item flex items-center gap-1.5"
+              title="Ask our AI travel assistant for advice"
+            >
+              <Sparkles size={13} className="text-accent-gold" />
+              <span>Ask AI</span>
+            </button>
+            <button 
+              onClick={handlePlanJourney} 
+              className="nav-item nav-btn-item"
+              title="Create your daily trip schedule"
+            >
+              Trip Planner
+            </button>
           </nav>
 
-          {/* Right Column: Search & CTA */}
-          <div className="header-right desktop-nav" style={{ display: 'none', gap: 'var(--space-6)', alignItems: 'center', justifyContent: 'flex-end' }}>
+          {/* Right: Location Selector, Search, & Plan a Trip Pill CTA */}
+          <div className="header-right desktop-only">
+            
+            {/* Interactive Location Badge */}
+            <button
+              onClick={openLocationModal}
+              className="header-location-pill"
+              aria-label="Current location"
+              title="Click to detect or change your location"
+            >
+              <MapPin size={12} className="text-secondary" />
+              <span className="location-label">
+                {activeLocation ? activeLocation.city : 'Tokyo'}
+              </span>
+              <ChevronDown size={12} className="chevron-icon" />
+            </button>
+
+            {/* Circular Search Trigger Button */}
             <button 
               onClick={() => setSearchOpen(true)}
-              className="btn-icon" 
-              style={{ 
-                color: 'inherit', 
-                width: '44px', 
-                height: '44px',
-                display: 'flex', 
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '50%',
-                transition: 'background-color 0.2s'
-              }}
+              className="header-search-btn"
               aria-label="Open search"
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
-              <Search size={18} strokeWidth={1.5} />
+              <Search size={16} strokeWidth={1.75} />
             </button>
-            <Button 
+
+            {/* Dark Olive Pill CTA */}
+            <button 
               onClick={handlePlanJourney}
-              variant={isHome && !isScrolled ? 'secondary' : 'primary'} 
-              style={{
-                height: '44px',
-                padding: '0 20px',
-                fontSize: '12px',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                ...(isHome && !isScrolled ? {
-                  color: 'var(--color-white)', 
-                  borderColor: 'rgba(255,255,255,0.4)',
-                  backgroundColor: 'transparent',
-                } : {
-                  backgroundColor: 'var(--color-text-primary)',
-                  color: 'var(--color-bg-primary)',
-                  border: 'none'
-                })
-              }}
-              className={isHome && !isScrolled ? 'hero-cta' : ''}
+              className="header-journey-cta"
             >
-              Plan my trip
-            </Button>
+              Plan a Trip
+            </button>
           </div>
 
+          {/* Mobile Menu Toggle Button */}
           <button 
-            className="mobile-toggle btn-icon" 
+            className="mobile-toggle-btn" 
             onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open menu"
-            style={{ color: 'inherit', zIndex: 60 }}
+            aria-label="Open navigation menu"
           >
-            <Menu size={28} />
+            <Menu size={24} />
           </button>
+
         </div>
-
-        <style>{`
-          .header-grid {
-            display: flex;
-            justify-content: space-between;
-          }
-
-          @media (min-width: 768px) {
-            .header-grid {
-              display: grid !important;
-              grid-template-columns: 1fr auto 1fr;
-            }
-            .desktop-nav { display: flex !important; }
-            .mobile-toggle { display: none !important; }
-            .header-left { justify-content: flex-start; }
-            .header-center { justify-content: center; }
-            .header-right { justify-content: flex-end; }
-          }
-          
-          .nav-link {
-            position: relative;
-          }
-          
-          .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 1px;
-            background-color: currentColor;
-            transform: scaleX(0);
-            transform-origin: right;
-            transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
-          }
-          
-          .nav-link:hover::after,
-          .nav-link[aria-expanded="true"]::after {
-            transform: scaleX(1);
-            transform-origin: left;
-          }
-          
-          .hero-cta:hover {
-            background-color: var(--color-bg-primary) !important;
-            color: var(--color-text-primary) !important;
-            border-color: transparent !important;
-          }
-        `}</style>
-
-        {/* Mega Menus Dropdown Container */}
-        {activeMegaMenu && (
-          <MegaMenu 
-            type={activeMegaMenu} 
-            isOpen={!!activeMegaMenu} 
-            onClose={() => setActiveMegaMenu(null)} 
-          />
-        )}
       </header>
 
-      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
-      
+      {/* Global Modals & Overlays */}
       <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      <MobileMenu 
+        isOpen={mobileMenuOpen} 
+        onClose={() => setMobileMenuOpen(false)} 
+      />
+
+      <style>{`
+        .editorial-header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 76px;
+          z-index: 50;
+          background-color: rgba(248, 246, 240, 0.92);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border-bottom: 1px solid var(--color-border);
+          transition: background-color 300ms ease, box-shadow 300ms ease, height 300ms ease;
+        }
+
+        .editorial-header.header-scrolled {
+          background-color: rgba(248, 246, 240, 0.98);
+          box-shadow: 0 4px 20px rgba(36, 35, 31, 0.04);
+        }
+
+        .header-inner {
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        @media (min-width: 900px) {
+          .header-inner {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+          }
+          .header-left { justify-content: flex-start; }
+          .header-center { justify-content: center; }
+          .header-right { justify-content: flex-end; }
+        }
+
+        .header-left {
+          display: flex;
+          align-items: center;
+        }
+
+        .brand-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          text-decoration: none;
+          color: var(--color-text-primary);
+          transition: opacity 0.2s;
+        }
+
+        .brand-link:hover {
+          opacity: 0.85;
+        }
+
+        .brand-emblem {
+          color: var(--color-accent-gold);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .brand-text {
+          font-family: var(--font-serif);
+          font-size: 21px;
+          font-weight: 500;
+          letter-spacing: 0.22em;
+          color: var(--color-text-primary);
+        }
+
+        .header-center {
+          display: flex;
+          align-items: center;
+          gap: 36px;
+        }
+
+        .nav-item {
+          font-family: var(--font-sans);
+          font-size: 13.5px;
+          font-weight: 500;
+          color: var(--color-text-primary);
+          text-decoration: none;
+          position: relative;
+          padding: 6px 0;
+          letter-spacing: 0.02em;
+          transition: color 0.2s;
+          background: none;
+          border: none;
+          cursor: pointer;
+        }
+
+        .nav-item:hover {
+          color: var(--color-accent-primary);
+        }
+
+        .nav-item-active::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 1.5px;
+          background-color: var(--color-accent-primary);
+          border-radius: 1px;
+        }
+
+        .header-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        .header-location-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 7px 14px;
+          border-radius: 9999px;
+          background-color: #FFFFFF;
+          border: 1px solid var(--color-border);
+          box-shadow: 0 1px 4px rgba(36, 35, 31, 0.03);
+          color: var(--color-text-primary);
+          font-family: var(--font-sans);
+          font-size: 12.5px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .header-location-pill:hover {
+          border-color: var(--color-border-hover);
+          box-shadow: 0 2px 8px rgba(36, 35, 31, 0.06);
+        }
+
+        .chevron-icon {
+          color: var(--color-text-muted);
+          transition: transform 0.2s;
+        }
+
+        .header-location-pill:hover .chevron-icon {
+          transform: translateY(1px);
+        }
+
+        .header-search-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background-color: #FFFFFF;
+          border: 1px solid var(--color-border);
+          color: var(--color-text-primary);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .header-search-btn:hover {
+          border-color: var(--color-border-hover);
+          color: var(--color-accent-primary);
+          transform: translateY(-1px);
+        }
+
+        .header-journey-cta {
+          padding: 9px 20px;
+          border-radius: 9999px;
+          background-color: var(--color-accent-primary);
+          color: #FFFFFF;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 500;
+          letter-spacing: 0.02em;
+          border: none;
+          cursor: pointer;
+          box-shadow: 0 2px 8px rgba(62, 74, 61, 0.2);
+          transition: all 0.2s ease;
+        }
+
+        .header-journey-cta:hover {
+          background-color: var(--color-accent-hover);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(62, 74, 61, 0.28);
+        }
+
+        .mobile-toggle-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: none;
+          border: none;
+          color: var(--color-text-primary);
+          cursor: pointer;
+          padding: 6px;
+        }
+
+        @media (min-width: 900px) {
+          .mobile-toggle-btn {
+            display: none;
+          }
+        }
+      `}</style>
     </>
   );
 };

@@ -8,15 +8,86 @@ export interface ImageMetadata {
 
 // Meticulously curated, 100% unique imagery for TAVIRA
 export const MOCK_IMAGES: Record<string, ImageMetadata> = {
+  // === PARIS ===
+  'paris-hero': {
+    id: 'paris-hero',
+    url: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=85&w=2400&auto=format&fit=crop',
+    alt: 'Paris rooftops and Eiffel Tower in golden evening light',
+  },
+  'paris-eiffel': {
+    id: 'paris-eiffel',
+    url: 'https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Eiffel Tower soaring into calm Parisian skies',
+  },
+  'paris-louvre': {
+    id: 'paris-louvre',
+    url: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Louvre Museum courtyard and historic palace facade',
+  },
+  'paris-montmartre': {
+    id: 'paris-montmartre',
+    url: 'https://images.unsplash.com/photo-1520939817895-060bdef4dc1b?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Cobblestone streets and bohemian cafés of Montmartre',
+  },
+  'paris-seine': {
+    id: 'paris-seine',
+    url: 'https://images.unsplash.com/photo-1509439581779-6298f75bf6e5?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Quiet dusk reflections along the River Seine',
+  },
+
+  // === CAPPADOCIA ===
+  'cappadocia-hero': {
+    id: 'cappadocia-hero',
+    url: 'https://images.unsplash.com/photo-1609137144822-261559c5d013?q=85&w=2400&auto=format&fit=crop',
+    alt: 'Hot air balloons floating above Cappadocia fairy chimneys at sunrise'
+  },
+  'cappadocia-place-1': {
+    id: 'cappadocia-place-1',
+    url: 'https://images.unsplash.com/photo-1570939274717-7eda259b50ed?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Göreme rock churches and scenic valley caves'
+  },
+  'cappadocia-place-2': {
+    id: 'cappadocia-place-2',
+    url: 'https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Uchisar Castle standing proudly over the Anatolian plateau'
+  },
+  'cappadocia-place-3': {
+    id: 'cappadocia-place-3',
+    url: 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Love Valley rock formations under morning glow'
+  },
+
+  // === BANFF ===
+  'banff-hero': {
+    id: 'banff-hero',
+    url: 'https://images.unsplash.com/photo-1503614472-8c93d56e92ce?q=85&w=2400&auto=format&fit=crop',
+    alt: 'Turquoise waters of Lake Louise framed by majestic Canadian Rockies'
+  },
+  'banff-place-1': {
+    id: 'banff-place-1',
+    url: 'https://images.unsplash.com/photo-1503614472-8c93d56e92ce?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Glacial calm of Lake Louise and Victoria Glacier'
+  },
+  'banff-place-2': {
+    id: 'banff-place-2',
+    url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Moraine Lake azure waters and alpine pine trees'
+  },
+  'banff-place-3': {
+    id: 'banff-place-3',
+    url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=85&w=1600&auto=format&fit=crop',
+    alt: 'Johnston Canyon deep limestone gorge and waterfalls'
+  },
+
   // === HOME & MOODS ===
   'home-hero': {
     id: 'home-hero',
-    url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2800&auto=format&fit=crop', // Stunning, moody, high-res cinematic mountain landscape
+    url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2800&auto=format&fit=crop',
     alt: 'Cinematic mountain landscape shrouded in mist',
   },
   'home-story-1': {
     id: 'home-story-1',
-    url: 'https://images.unsplash.com/photo-1498307833015-e7b400441eb8?q=80&w=1500&auto=format&fit=crop', // Person in vast nature
+    url: 'https://images.unsplash.com/photo-1498307833015-e7b400441eb8?q=80&w=1500&auto=format&fit=crop',
     alt: 'Traveller gazing across an endless horizon',
   },
   'mood-slow-mornings': {

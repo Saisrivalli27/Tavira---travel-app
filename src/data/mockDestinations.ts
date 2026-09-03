@@ -41,6 +41,72 @@ export interface Destination {
 }
 
 export const MOCK_DESTINATIONS: Destination[] = [
+  // === FRANCE ===
+  {
+    id: 'dest-paris',
+    slug: 'paris',
+    name: 'Paris',
+    country: 'France',
+    region: 'Europe',
+    tagline: 'Timeless streets, quiet cafés and art at every corner.',
+    description: 'The city of timeless moments. From dawn light filtering across Haussmannian balconies to evening walks along the Seine, Paris is an unhurried masterclass in beauty, culinary tradition, and poetic discovery.',
+    heroImageId: 'paris-hero',
+    moods: ['Cultural depth', 'City energy', 'Slow mornings'],
+    bestSeason: 'Spring & Autumn',
+    coordinates: { lat: 48.8566, lng: 2.3522 },
+    highlights: ['Haussmannian architecture', 'Artisan café culture', 'The Seine at dusk'],
+    detailedHighlights: [
+      { title: 'The morning light', description: 'Sunlight catches the zinc rooftops and stone bridges in luminous amber.' },
+      { title: 'Café rituals', description: 'Watch the neighborhood wake from small sidewalk bistros in Saint-Germain.' }
+    ],
+    details: {
+      idealStay: '4 to 5 days',
+      bestTimeDescription: 'April to June and September to October provide mild temperatures and gentle light.',
+      localNote: 'Walk the colonnades of Palais-Royal at dawn and seek out courtyard bistros tucked behind the boulevards.',
+      signatureExperiences: [
+        'Dawn stroll along the Seine quays',
+        'Quiet morning at the Musée d’Orsay',
+        'Artisan espresso in Saint-Germain-des-Prés',
+        'Twilight view from the Pont des Arts'
+      ],
+      locationLabel: 'Île-de-France, France'
+    },
+    places: [
+      {
+        id: 'place-eiffel',
+        name: 'Eiffel Tower',
+        description: 'Iconic architectural ironwork soaring above the Champ de Mars, best admired as evening illuminates its lacework.',
+        imageId: 'paris-eiffel',
+        duration: '2 hours',
+        bestTime: 'Golden hour or twilight'
+      },
+      {
+        id: 'place-louvre',
+        name: 'Louvre Museum',
+        description: 'Centuries of world art, history, and royal architecture gathered beneath historic gilded ceilings and modern glass.',
+        imageId: 'paris-louvre',
+        duration: '3 hours',
+        bestTime: 'Late afternoon on weekdays'
+      },
+      {
+        id: 'place-montmartre',
+        name: 'Montmartre',
+        description: 'Bohemian hillside cobblestones, historic artist studios, and intimate terrace cafés looking out over all of Paris.',
+        imageId: 'paris-montmartre',
+        duration: '2.5 hours',
+        bestTime: 'Morning before crowds gather'
+      },
+      {
+        id: 'place-seine',
+        name: 'The Seine Quays',
+        description: 'Riverside cobblestones lined with historic bouquinistes bookstalls and tranquil reflection of ancient limestone bridges.',
+        imageId: 'paris-seine',
+        duration: '1.5 hours',
+        bestTime: 'Sunset'
+      }
+    ]
+  },
+
   // === INDIA (8) ===
   {
     id: 'dest-udaipur',
@@ -729,6 +795,96 @@ export const MOCK_DESTINATIONS: Destination[] = [
         imageId: MOCK_IMAGES['queenstown-place-2'].id,
         duration: 'Half day',
         bestTime: 'Afternoon',
+      }
+    ]
+  },
+  // === TÜRKİYE ===
+  {
+    id: 'dest-cappadocia',
+    slug: 'cappadocia',
+    name: 'Cappadocia',
+    country: 'Türkiye',
+    region: 'Europe',
+    tagline: 'Dreamy landscapes, ancient caves, and sunrises like nowhere else.',
+    description: 'A surreal realm sculpted by wind, water, and ancient volcanic ash. From honeycombed cave dwellings and subterranean sanctuaries to hot air balloons drifting peacefully above fairy chimneys at sunrise, Cappadocia offers an unhurried, otherworldly journey.',
+    heroImageId: 'cappadocia-hero',
+    moods: ['Wild horizons', 'Slow mornings', 'Cultural depth'],
+    bestSeason: 'April to June & September to November',
+    coordinates: { lat: 38.6431, lng: 34.8289 },
+    highlights: ['Sunrise hot air balloon ascent', 'Rock-carved Byzantine sanctuaries', 'Uchisar panoramic sunset'],
+    detailedHighlights: [
+      { title: 'The Dawn Ascent', description: 'Watching hundreds of colorful balloons lift into the crisp pink morning sky above fairy chimneys.' },
+      { title: 'Troglodyte Dwellings', description: 'Intricate cave suites carved directly into soft tufa stone, offering quiet acoustic refuge.' }
+    ],
+    places: [
+      {
+        id: 'place-goreme',
+        name: 'Göreme Valley',
+        description: 'Centuries-old rock-cut churches and fairy chimneys glowing under soft morning light.',
+        imageId: 'cappadocia-place-1',
+        duration: '3 hours',
+        bestTime: 'Sunrise'
+      },
+      {
+        id: 'place-uchisar',
+        name: 'Uchisar Castle',
+        description: 'The highest volcanic peak in Cappadocia with sweeping vistas across Pigeon Valley.',
+        imageId: 'cappadocia-place-2',
+        duration: '2 hours',
+        bestTime: 'Late afternoon'
+      },
+      {
+        id: 'place-love-valley',
+        name: 'Love Valley',
+        description: 'Dramatic geological spires rising from golden sandstone, serene at first light.',
+        imageId: 'cappadocia-place-3',
+        duration: '2 hours',
+        bestTime: 'Dawn'
+      }
+    ]
+  },
+  // === CANADA ===
+  {
+    id: 'dest-banff',
+    slug: 'banff',
+    name: 'Banff',
+    country: 'Canada',
+    region: 'Americas',
+    tagline: 'Turquoise lakes, pine forests, and pure natural beauty.',
+    description: 'Carved deep into the Canadian Rockies, Banff is a sanctuary of pristine glacial waters, towering limestone massifs, and quiet evergreen trails. A destination where scale inspires quiet contemplation and unhurried reconnection with nature.',
+    heroImageId: 'banff-hero',
+    moods: ['Wild horizons', 'Nature & serenity'],
+    bestSeason: 'June to September & December to March',
+    coordinates: { lat: 51.1784, lng: -115.5708 },
+    highlights: ['Glacial waters of Lake Louise', 'Moraine Lake sunrise reflections', 'Quiet Johnston Canyon catwalks'],
+    detailedHighlights: [
+      { title: 'Glacial Calm', description: 'Early morning paddle across mirrored turquoise waters beneath Victoria Glacier.' },
+      { title: 'Alpine Solitude', description: 'Crisp mountain air and silence broken only by wind through ancient pines.' }
+    ],
+    places: [
+      {
+        id: 'place-lake-louise',
+        name: 'Lake Louise',
+        description: 'Vivid turquoise waters reflecting snow-dusted peaks in breathless morning stillness.',
+        imageId: 'banff-place-1',
+        duration: '3 hours',
+        bestTime: 'Morning'
+      },
+      {
+        id: 'place-moraine-lake',
+        name: 'Moraine Lake',
+        description: 'A sapphire jewel cradled by the Valley of the Ten Peaks.',
+        imageId: 'banff-place-2',
+        duration: '2.5 hours',
+        bestTime: 'Early morning'
+      },
+      {
+        id: 'place-johnston-canyon',
+        name: 'Johnston Canyon',
+        description: 'Suspended catwalks hugging deep limestone gorge walls leading to waterfalls.',
+        imageId: 'banff-place-3',
+        duration: '2 hours',
+        bestTime: 'Afternoon'
       }
     ]
   }

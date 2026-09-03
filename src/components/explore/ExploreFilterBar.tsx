@@ -119,13 +119,17 @@ export const ExploreFilterBar = ({ filters, updateFilter }: ExploreFilterBarProp
           font-family: var(--font-sans);
           font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.12em;
-          color: var(--color-text-tertiary);
+          letter-spacing: 0.14em;
+          color: var(--color-accent-primary);
           font-weight: 600;
         }
         .select-wrapper {
           position: relative;
-          border-bottom: 1px solid rgba(42, 36, 33, 0.15);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+          transition: border-color 0.2s;
+        }
+        .select-wrapper:hover, .select-wrapper:focus-within {
+          border-bottom-color: var(--color-accent-primary);
         }
         .select-wrapper::after {
           content: '';
@@ -137,7 +141,7 @@ export const ExploreFilterBar = ({ filters, updateFilter }: ExploreFilterBarProp
           height: 0; 
           border-left: 4px solid transparent;
           border-right: 4px solid transparent;
-          border-top: 4px solid var(--color-text-primary);
+          border-top: 4px solid var(--color-accent-primary);
           pointer-events: none;
         }
         .custom-select {
@@ -147,13 +151,14 @@ export const ExploreFilterBar = ({ filters, updateFilter }: ExploreFilterBarProp
           border: none;
           padding: 8px 24px 8px 0;
           font-family: var(--font-sans);
-          font-size: 18px;
-          color: var(--color-text-primary);
+          font-size: 16px;
+          color: #F5F2EB;
           cursor: pointer;
           outline: none;
         }
-        .custom-select:focus {
-          border-bottom-color: var(--color-accent-primary);
+        .custom-select option {
+          background-color: #1C1B1A;
+          color: #F5F2EB;
         }
       `}</style>
     </div>
